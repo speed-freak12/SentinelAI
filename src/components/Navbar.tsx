@@ -2,13 +2,21 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Search, Menu, ChevronDown, Circle, Sun, Moon, Command } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/utils/cn';
+import type { AppUser } from '@/lib/supabase';
 
 interface NavbarProps {
   title: string;
   onMenuClick: () => void;
+  user: AppUser | null;
 }
 
-export function Navbar({ title, onMenuClick }: NavbarProps) {
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export function Navbar({ title, onMenuClick, user }: NavbarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const notifications = [
     { msg: 'Critical: SSH brute force on auth-service', time: '2m', severity: 'red' },
@@ -98,11 +106,20 @@ export function Navbar({ title, onMenuClick }: NavbarProps) {
 
         <button className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] py-1.5 pl-1.5 pr-3 hover:bg-white/[0.04]">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-purple to-accent-blue text-xs font-bold text-white">
-            AK
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="h-full w-full rounded-lg object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              initials(user?.name ?? 'A K')
+            )}
           </div>
           <div className="hidden text-left sm:block">
-            <p className="text-xs font-semibold leading-tight text-white">Alex Kovac</p>
-            <p className="text-[10px] leading-tight text-slate-500">SecOps Lead</p>
+            <p className="text-xs font-semibold leading-tight text-white">{user?.name ?? 'Analyst'}</p>
+            <p className="truncate text-[10px] leading-tight text-slate-500 max-w-[140px]">{user?.email ?? ''}</p>
           </div>
           <ChevronDown className="hidden h-4 w-4 text-slate-500 sm:block" />
         </button>
