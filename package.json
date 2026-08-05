@@ -11,8 +11,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
     "@supabase/supabase-js": "^2.112.0",
+    "axios": "^1.19.0",
     "framer-motion": "^12.43.0",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.446.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
