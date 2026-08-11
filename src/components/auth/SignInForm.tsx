@@ -13,6 +13,7 @@ import {
 import API from "@/services/authService";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/context/AuthContext";
+import GoogleButton from "./GoogleButton";
 
 interface Props {
   onSignup: () => void;
@@ -28,19 +29,14 @@ export default function SignInForm({
   const { login } = useAuth();
 
   const [email, setEmail] = useState("");
-
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async (
-    e: React.FormEvent
-  ) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setError("");
@@ -48,26 +44,21 @@ export default function SignInForm({
     try {
       setLoading(true);
 
-      const { data } = await API.post(
-        "/login",
-        {
-          email,
-          password,
-        }
-      );
+      const { data } = await API.post("/login", {
+        email,
+        password,
+      });
 
       login(data.user, data.token);
 
-      setLoading(false);
-
       onSuccess();
     } catch (err: any) {
-      setLoading(false);
-
       setError(
         err.response?.data?.message ||
           "Login failed."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,7 +154,7 @@ export default function SignInForm({
       <button
         type="button"
         onClick={onForgot}
-        className="text-sm text-accent-cyan"
+        className="text-sm text-accent-cyan hover:text-accent-blue transition"
       >
         Forgot Password?
       </button>
@@ -186,12 +177,26 @@ export default function SignInForm({
           : "Sign In"}
       </Button>
 
-      <div className="text-center text-sm text-slate-400">
+      {/* Divider */}
+      <div className="my-5 flex items-center">
+        <div className="h-px flex-1 bg-white/10" />
+
+        <span className="px-3 text-xs uppercase tracking-[0.2em] text-slate-500">
+          OR
+        </span>
+
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
+
+      {/* Google Sign In */}
+      <GoogleButton onSuccess={onSuccess} />
+
+      <div className="pt-4 text-center text-sm text-slate-400">
         Don't have an account?{" "}
         <button
           type="button"
           onClick={onSignup}
-          className="font-semibold text-accent-cyan"
+          className="font-semibold text-accent-cyan hover:text-accent-blue transition"
         >
           Sign Up
         </button>

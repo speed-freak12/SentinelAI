@@ -13,13 +13,16 @@ import {
 
 import API from "@/services/authService";
 import { Button } from "@/components/Button";
+import GoogleButton from "./GoogleButton";
 
 interface Props {
   onOTPSent: (email: string) => void;
+  onSignin: () => void;
 }
 
 export default function SignUpForm({
   onOTPSent,
+  onSignin,
 }: Props) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,24 +48,19 @@ export default function SignUpForm({
         password,
       });
 
-      setLoading(false);
-
       if (data.success) {
         onOTPSent(email);
       }
-
     } catch (err: any) {
-
       console.error(err);
-
-      setLoading(false);
 
       setError(
         err.response?.data?.message ||
-        err.message ||
-        "Unable to create account."
+          err.message ||
+          "Unable to create account."
       );
-
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,23 +86,29 @@ export default function SignUpForm({
 
       <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-4">
         <User className="h-5 w-5 text-slate-400" />
+
         <input
           type="text"
           placeholder="Full Name"
           className="w-full bg-transparent px-3 py-4 text-white outline-none"
           value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          onChange={(e) =>
+            setFullName(e.target.value)
+          }
         />
       </div>
 
       <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-4">
         <Mail className="h-5 w-5 text-slate-400" />
+
         <input
           type="email"
           placeholder="Email"
           className="w-full bg-transparent px-3 py-4 text-white outline-none"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
         />
       </div>
 
@@ -112,17 +116,25 @@ export default function SignUpForm({
         <Lock className="h-5 w-5 text-slate-400" />
 
         <input
-          type={showPassword ? "text" : "password"}
+          type={
+            showPassword
+              ? "text"
+              : "password"
+          }
           placeholder="Password"
           className="w-full bg-transparent px-3 py-4 text-white outline-none"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
         />
 
         <button
           type="button"
           onClick={() =>
-            setShowPassword(!showPassword)
+            setShowPassword(
+              !showPassword
+            )
           }
         >
           {showPassword ? (
@@ -146,8 +158,37 @@ export default function SignUpForm({
           )
         }
       >
-        {loading ? "Creating..." : "Create Account"}
+        {loading
+          ? "Creating..."
+          : "Create Account"}
       </Button>
+
+      <div className="my-5 flex items-center">
+        <div className="h-px flex-1 bg-white/10" />
+
+        <span className="px-3 text-xs uppercase tracking-[0.2em] text-slate-500">
+          OR
+        </span>
+
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
+
+      <GoogleButton
+        onSuccess={() => {
+          window.location.reload();
+        }}
+      />
+
+      <div className="pt-4 text-center text-sm text-slate-400">
+        Already have an account?{" "}
+        <button
+          type="button"
+          onClick={onSignin}
+          className="font-semibold text-accent-cyan hover:text-accent-blue transition"
+        >
+          Sign In
+        </button>
+      </div>
     </motion.form>
   );
 }

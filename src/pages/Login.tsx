@@ -86,13 +86,14 @@ export function Login({
             )}
 
             {mode === "signup" && (
-              <SignUpForm
-                onOTPSent={(mail) => {
-                  setEmail(mail);
-                  setMode("verify");
-                }}
-              />
-            )}
+  <SignUpForm
+    onOTPSent={(mail) => {
+      setEmail(mail);
+      setMode("verify");
+    }}
+    onSignin={() => setMode("signin")}
+  />
+)}
 
             {mode === "verify" && (
               <VerifyOTP
