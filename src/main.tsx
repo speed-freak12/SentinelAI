@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-console.log(import.meta.env);
+console.log("Google Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 import App from "./App";
 import "./index.css";
