@@ -10,6 +10,8 @@ exports.getDashboardStats = async (req, res) => {
       totalThreats,
       totalScans,
       totalReports,
+      criticalThreats,
+      resolvedThreats,
       recentThreats,
       threatDistribution,
       threatsOverTime,
@@ -25,6 +27,12 @@ exports.getDashboardStats = async (req, res) => {
 
       // Total reports
       Report.countDocuments(),
+
+      // Critical threats
+      Threat.countDocuments({ severity: "Critical" }),
+
+      // Resolved threats
+      Threat.countDocuments({ status: "Resolved" }),
 
       // Latest 5 real threats
       Threat.find()
@@ -107,6 +115,8 @@ exports.getDashboardStats = async (req, res) => {
         totalThreats,
         totalScans,
         totalReports,
+        criticalThreats,
+        resolvedThreats,
       },
 
       recentThreats,
