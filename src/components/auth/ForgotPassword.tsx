@@ -38,24 +38,24 @@ export default function ForgotPassword({
       setLoading(true);
 
       const { data } = await API.post(
-        "/forgot-password",
+        "/auth/forgot-password",
         {
           email,
         }
       );
 
-      setLoading(false);
-
       setMessage(data.message);
 
     } catch (err: any) {
 
-      setLoading(false);
-
       setError(
         err.response?.data?.message ||
-          "Unable to send reset email."
+        "Unable to send reset email."
       );
+
+    } finally {
+
+      setLoading(false);
 
     }
   };

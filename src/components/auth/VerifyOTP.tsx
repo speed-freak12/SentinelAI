@@ -92,14 +92,12 @@ export default function VerifyOTP({
       setLoading(true);
 
       const { data } = await API.post(
-        "/verify-otp",
+        "/auth/verify-otp",
         {
           email,
           otp: otp.join(""),
         }
       );
-
-      setLoading(false);
 
       setMessage(data.message);
 
@@ -109,12 +107,15 @@ export default function VerifyOTP({
 
     } catch (err: any) {
 
-      setLoading(false);
-
       setError(
         err.response?.data?.message ||
           "Invalid OTP."
       );
+
+    } finally {
+
+      setLoading(false);
+
     }
   };
 
@@ -124,24 +125,24 @@ export default function VerifyOTP({
       setLoading(true);
 
       const { data } = await API.post(
-        "/resend-otp",
+        "/auth/resend-otp",
         {
           email,
         }
       );
 
-      setLoading(false);
-
       setMessage(data.message);
 
     } catch (err: any) {
-
-      setLoading(false);
 
       setError(
         err.response?.data?.message ||
           "Unable to resend OTP."
       );
+
+    } finally {
+
+      setLoading(false);
 
     }
   };

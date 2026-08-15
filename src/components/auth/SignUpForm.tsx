@@ -42,7 +42,7 @@ export default function SignUpForm({
     try {
       setLoading(true);
 
-      const { data } = await API.post("/signup", {
+      const { data } = await API.post("/auth/signup", {
         fullName,
         email,
         password,

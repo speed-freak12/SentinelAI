@@ -19,7 +19,7 @@ export default function GoogleButton({ onSuccess }: Props) {
         text="continue_with"
         onSuccess={async (credentialResponse) => {
           try {
-            const { data } = await API.post("/google-login", {
+            const { data } = await API.post("/auth/google-login", {
               token: credentialResponse.credential,
             });
 

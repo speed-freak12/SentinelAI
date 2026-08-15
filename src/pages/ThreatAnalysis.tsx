@@ -5,8 +5,9 @@ import { GlassCard } from '@/components/GlassCard';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { cn, severityBg } from '@/utils/cn';
-import { threats } from '@/utils/mockData';
+import threatAPI from '@/services/threatService';
 import type { PageId, Severity } from '@/types';
+
 
 interface ThreatAnalysisProps {
   onNavigate: (page: PageId) => void;
@@ -17,6 +18,17 @@ const severities: (Severity | 'All')[] = ['All', 'Critical', 'High', 'Medium', '
 export function ThreatAnalysis({ onNavigate }: ThreatAnalysisProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Severity | 'All'>('All');
+  interface RealThreat {
+  _id: string;
+  title: string;
+  type: string;
+  severity: Severity;
+  status: string;
+  description?: string;
+  createdAt: string;
+}
+
+const [threats, setThreats] = useState<RealThreat[]>([]);
 
   const filtered = useMemo(
     () =>
@@ -24,10 +36,10 @@ export function ThreatAnalysis({ onNavigate }: ThreatAnalysisProps) {
         const matchFilter = filter === 'All' || t.severity === filter;
         const q = query.toLowerCase();
         const matchQuery =
-          !q ||
-          t.type.toLowerCase().includes(q) ||
-          t.sourceIp.includes(q) ||
-          t.id.toLowerCase().includes(q);
+  !q ||
+  t.title.toLowerCase().includes(q) ||
+  t.type.toLowerCase().includes(q) ||
+  t._id.toLowerCase().includes(q);
         return matchFilter && matchQuery;
       }),
     [query, filter]
@@ -103,7 +115,6 @@ export function ThreatAnalysis({ onNavigate }: ThreatAnalysisProps) {
                 <th className="px-5 py-3 font-medium">Type</th>
                 <th className="px-5 py-3 font-medium">Severity</th>
                 <th className="px-5 py-3 font-medium">Confidence</th>
-                <th className="hidden px-5 py-3 font-medium md:table-cell">Source IP</th>
                 <th className="hidden px-5 py-3 font-medium lg:table-cell">Timestamp</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium"></th>
@@ -113,7 +124,7 @@ export function ThreatAnalysis({ onNavigate }: ThreatAnalysisProps) {
               <AnimatePresence>
                 {filtered.map((t, i) => (
                   <motion.tr
-                    key={t.id}
+                    key={t._id}
                     layout
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -122,29 +133,16 @@ export function ThreatAnalysis({ onNavigate }: ThreatAnalysisProps) {
                     onClick={() => onNavigate('incident')}
                     className="cursor-pointer border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.03]"
                   >
-                    <td className="px-5 py-3.5 font-mono text-xs text-accent-cyan">{t.id}</td>
+                    <td className="px-5 py-3.5 font-mono text-xs text-accent-cyan">{t._id}</td>
                     <td className="px-5 py-3.5 font-medium text-white">{t.type}</td>
                     <td className="px-5 py-3.5">
                       <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold', severityBg(t.severity))}>
                         {t.severity}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/[0.05]">
-                          <div
-                            className={cn(
-                              'h-full rounded-full',
-                              t.confidence >= 90 ? 'bg-accent-red' : t.confidence >= 75 ? 'bg-accent-amber' : 'bg-accent-blue'
-                            )}
-                            style={{ width: `${t.confidence}%` }}
-                          />
-                        </div>
-                        <span className="font-mono text-xs text-slate-400">{t.confidence}%</span>
-                      </div>
-                    </td>
-                    <td className="hidden px-5 py-3.5 font-mono text-xs text-slate-300 md:table-cell">{t.sourceIp}</td>
-                    <td className="hidden px-5 py-3.5 font-mono text-xs text-slate-500 lg:table-cell">{t.timestamp}</td>
+                    
+                   
+                    <td className="hidden px-5 py-3.5 font-mono text-xs text-slate-500 lg:table-cell">{t.createdAt}</td>
                     <td className="px-5 py-3.5"><Badge label={t.status} kind="status" /></td>
                     <td className="px-5 py-3.5">
                       <ArrowRight className="h-4 w-4 text-slate-500" />

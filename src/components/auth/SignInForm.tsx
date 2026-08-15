@@ -44,7 +44,7 @@ export default function SignInForm({
     try {
       setLoading(true);
 
-      const { data } = await API.post("/login", {
+      const { data } = await API.post("/auth/login", {
         email,
         password,
       });
@@ -54,8 +54,7 @@ export default function SignInForm({
       onSuccess();
     } catch (err: any) {
       setError(
-        err.response?.data?.message ||
-          "Login failed."
+        err.response?.data?.message || "Login failed."
       );
     } finally {
       setLoading(false);
@@ -105,9 +104,7 @@ export default function SignInForm({
             placeholder="you@example.com"
             className="w-full bg-transparent px-3 py-4 text-white outline-none"
             value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
       </div>
@@ -121,26 +118,16 @@ export default function SignInForm({
           <Lock className="h-5 w-5 text-slate-400" />
 
           <input
-            type={
-              showPassword
-                ? "text"
-                : "password"
-            }
+            type={showPassword ? "text" : "password"}
             placeholder="********"
             className="w-full bg-transparent px-3 py-4 text-white outline-none"
             value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
+            onChange={(e) => setPassword(e.target.value)}
           />
 
           <button
             type="button"
-            onClick={() =>
-              setShowPassword(
-                !showPassword
-              )
-            }
+            onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
               <EyeOff className="h-5 w-5 text-slate-400" />
@@ -172,12 +159,9 @@ export default function SignInForm({
           )
         }
       >
-        {loading
-          ? "Signing In..."
-          : "Sign In"}
+        {loading ? "Signing In..." : "Sign In"}
       </Button>
 
-      {/* Divider */}
       <div className="my-5 flex items-center">
         <div className="h-px flex-1 bg-white/10" />
 
@@ -188,7 +172,6 @@ export default function SignInForm({
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      {/* Google Sign In */}
       <GoogleButton onSuccess={onSuccess} />
 
       <div className="pt-4 text-center text-sm text-slate-400">

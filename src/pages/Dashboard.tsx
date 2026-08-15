@@ -29,144 +29,240 @@ import { GlassCard } from '@/components/GlassCard';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { cn, severityBg } from '@/utils/cn';
+import { useEffect, useState } from "react";
+import dashboardAPI from "@/services/dashboardService";
+import type { PageId, MetricCard } from "@/types";
 import {
   aiSummary,
-  metrics,
   recentIncidents,
   securityScoreGauge,
   threatDistribution,
   threatsOverTime,
-} from '@/utils/mockData';
-import type { PageId } from '@/types';
+} from "@/utils/mockData";
 
 interface DashboardProps {
   onNavigate: (page: PageId) => void;
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
+  const [stats, setStats] = useState({
+  totalUsers: 0,
+  totalThreats: 0,
+  totalScans: 0,
+  totalReports: 0,
+});
+const metricCards: MetricCard[] = [
+  {
+    id: "users",
+    label: "Total Users",
+    value: stats.totalUsers,
+    delta: 0,
+    icon: "Users",
+    accent: "blue",
+    spark: [1, 2, 3, 4, 5],
+  },
+  {
+    id: "threats",
+    label: "Total Threats",
+    value: stats.totalThreats,
+    delta: 0,
+    icon: "ShieldAlert",
+    accent: "red",
+    spark: [2, 3, 5, 4, 6],
+  },
+  {
+    id: "scans",
+    label: "Files Scanned",
+    value: stats.totalScans,
+    delta: 0,
+    icon: "FileSearch",
+    accent: "cyan",
+    spark: [3, 5, 4, 6, 7],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    value: stats.totalReports,
+    delta: 0,
+    icon: "Activity",
+    accent: "emerald",
+    spark: [1, 3, 2, 5, 4],
+  },
+];
+interface RecentThreat {
+  _id: string;
+  title: string;
+  type: string;
+  severity: string;
+  status: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const [recentThreats, setRecentThreats] = useState<RecentThreat[]>([]);
+const [recentScans, setRecentScans] = useState([]);
+interface ThreatDistributionItem {
+  _id: string;
+  count: number;
+}
+
+const [threatDistribution, setLiveThreatDistribution] =
+  useState<ThreatDistributionItem[]>([]);
+const [liveThreatsOverTime, setLiveThreatsOverTime] = useState([]);
+useEffect(() => {
+  const fetchDashboard = async () => {
+    try {
+
+      const { data } = await dashboardAPI.get("/");
+
+      setStats(data.stats);
+      setRecentThreats(data.recentThreats);
+      setRecentScans(data.recentScans);
+      setLiveThreatDistribution(data.threatDistribution);
+      setLiveThreatsOverTime(data.threatsOverTime);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchDashboard();
+}, []);
   return (
+
     <div className="space-y-6">
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {metrics.map((m, i) => (
-          <MetricCardItem key={m.id} card={m} index={i} />
-        ))}
+        {metricCards.map((m, i) => (
+  <MetricCardItem
+    key={m.id}
+    card={m}
+    index={i}
+  />
+))}
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Threats over time */}
         <GlassCard className="lg:col-span-2" delay={0.1}>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="flex items-center gap-2 text-base font-semibold text-white">
-                <Activity className="h-4 w-4 text-accent-cyan" />
-                Threats Over Time
-              </h3>
-              <p className="text-xs text-slate-500">Last 24 hours · UTC</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="h-2 w-2 rounded-full bg-accent-red" /> Critical
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="h-2 w-2 rounded-full bg-accent-blue" /> Threats
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="h-2 w-2 rounded-full bg-accent-emerald" /> Blocked
-              </span>
-            </div>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={threatsOverTime} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-                <defs>
-                  <linearGradient id="g-threats" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="g-blocked" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="g-critical" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#EF4444" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="time" tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#64748B', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15,23,42,0.95)',
-                    border: '1px solid rgba(59,130,246,0.25)',
-                    borderRadius: 12,
-                  }}
-                  labelStyle={{ color: '#94A3B8' }}
-                />
-                <Area type="monotone" dataKey="threats" stroke="#3B82F6" strokeWidth={2} fill="url(#g-threats)" />
-                <Area type="monotone" dataKey="blocked" stroke="#10B981" strokeWidth={2} fill="url(#g-blocked)" />
-                <Area type="monotone" dataKey="critical" stroke="#EF4444" strokeWidth={2} fill="url(#g-critical)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
+  <div className="mb-4 flex items-center justify-between">
+    <div>
+      <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+        <Activity className="h-4 w-4 text-accent-cyan" />
+        Threats Over Time
+      </h3>
 
-        {/* Security score gauge */}
-        <GlassCard delay={0.2}>
-          <div className="mb-2">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-white">
-              <ShieldAlert className="h-4 w-4 text-accent-purple" />
-              Security Score
-            </h3>
-            <p className="text-xs text-slate-500">Overall posture</p>
-          </div>
-          <div className="relative h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                innerRadius="70%"
-                outerRadius="100%"
-                data={securityScoreGauge}
-                startAngle={220}
-                endAngle={-40}
-              >
-                <defs>
-                  <linearGradient id="gauge-grad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#06B6D4" />
-                    <stop offset="50%" stopColor="#3B82F6" />
-                    <stop offset="100%" stopColor="#8B5CF6" />
-                  </linearGradient>
-                </defs>
-                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                <RadialBar dataKey="value" cornerRadius={12} fill="url(#gauge-grad)" background={{ fill: 'rgba(255,255,255,0.04)' }} />
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.4 }}
-                className="font-mono text-4xl font-bold text-gradient"
-              >
-                72
-              </motion.span>
-              <span className="text-xs font-medium text-slate-400">Elevated</span>
-            </div>
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: 'Network', val: 86, color: 'text-accent-emerald' },
-              { label: 'Endpoint', val: 64, color: 'text-accent-amber' },
-              { label: 'Identity', val: 71, color: 'text-accent-blue' },
-            ].map((s) => (
-              <div key={s.label} className="rounded-lg bg-white/[0.02] py-2">
-                <p className={cn('font-mono text-lg font-bold', s.color)}>{s.val}</p>
-                <p className="text-[10px] text-slate-500">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
+      <p className="text-xs text-slate-500">
+        Last 24 hours · UTC
+      </p>
+    </div>
+
+    <div className="flex items-center gap-3 text-xs">
+      <span className="flex items-center gap-1.5 text-slate-400">
+        <span className="h-2 w-2 rounded-full bg-accent-blue" />
+        Threats
+      </span>
+    </div>
+  </div>
+
+  <div className="h-64">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart
+        data={liveThreatsOverTime}
+        margin={{
+          top: 8,
+          right: 8,
+          bottom: 0,
+          left: -20,
+        }}
+      >
+        <defs>
+          <linearGradient
+            id="g-threats"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop
+              offset="0%"
+              stopColor="#3B82F6"
+              stopOpacity={0.4}
+            />
+            <stop
+              offset="100%"
+              stopColor="#3B82F6"
+              stopOpacity={0}
+            />
+          </linearGradient>
+        </defs>
+
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(255,255,255,0.05)"
+          vertical={false}
+        />
+
+        <XAxis
+          dataKey="_id"
+          tick={{
+            fill: "#64748B",
+            fontSize: 11,
+          }}
+          axisLine={false}
+          tickLine={false}
+        />
+
+        <YAxis
+          tick={{
+            fill: "#64748B",
+            fontSize: 11,
+          }}
+          axisLine={false}
+          tickLine={false}
+        />
+
+        <Tooltip
+          contentStyle={{
+            background: "rgba(15,23,42,0.95)",
+            border: "1px solid rgba(59,130,246,0.25)",
+            borderRadius: 12,
+          }}
+          labelStyle={{
+            color: "#94A3B8",
+          }}
+        />
+
+        <Area
+          type="monotone"
+          dataKey="threats"
+          stroke="#3B82F6"
+          strokeWidth={2}
+          fill="url(#g-threats)"
+          />
+          
+        <Area
+  type="monotone"
+  dataKey="blocked"
+  stroke="#10B981"
+  strokeWidth={2}
+  fill="none"
+/>
+
+<Area
+  type="monotone"
+  dataKey="critical"
+  stroke="#EF4444"
+  strokeWidth={2}
+  fill="none"
+/>
+        
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+</GlassCard>
+        
       </div>
 
       {/* Distribution + Incidents + AI summary */}
@@ -179,17 +275,31 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={threatDistribution}
-                  dataKey="value"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={3}
-                  stroke="none"
-                >
-                  {threatDistribution.map((e) => (
-                    <Cell key={e.name} fill={e.color} />
-                  ))}
-                </Pie>
+  data={threatDistribution}
+  dataKey="count"
+  nameKey="_id"
+  cx="50%"
+  cy="50%"
+  innerRadius={55}
+  outerRadius={75}
+  paddingAngle={3}
+  stroke="none"
+>
+  {threatDistribution.map((e) => (
+    <Cell
+      key={e._id}
+      fill={
+        e._id === "Critical"
+          ? "#EF4444"
+          : e._id === "High"
+          ? "#F59E0B"
+          : e._id === "Medium"
+          ? "#3B82F6"
+          : "#10B981"
+      }
+    />
+  ))}
+</Pie>
                 <Tooltip
                   contentStyle={{
                     background: 'rgba(15,23,42,0.95)',
@@ -205,16 +315,34 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </div>
           <div className="mt-3 space-y-1.5">
-            {threatDistribution.map((e) => (
-              <div key={e.name} className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-2 text-slate-300">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: e.color }} />
-                  {e.name}
-                </span>
-                <span className="font-mono text-slate-400">{e.value}%</span>
-              </div>
-            ))}
-          </div>
+  {threatDistribution.map((e) => (
+    <div
+      key={e._id}
+      className="flex items-center justify-between text-xs"
+    >
+      <span className="flex items-center gap-2 text-slate-300">
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{
+            backgroundColor:
+              e._id === "Critical"
+                ? "#EF4444"
+                : e._id === "High"
+                ? "#F59E0B"
+                : e._id === "Medium"
+                ? "#3B82F6"
+                : "#10B981",
+          }}
+        />
+        {e._id}
+      </span>
+
+      <span className="font-mono text-slate-400">
+        {e.count}
+      </span>
+    </div>
+  ))}
+</div>
         </GlassCard>
 
         {/* Recent incidents */}
@@ -240,32 +368,47 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </tr>
               </thead>
               <tbody>
-                {recentIncidents.map((inc, i) => (
-                  <motion.tr
-                    key={inc.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + i * 0.06 }}
-                    onClick={() => onNavigate('threats')}
-                    className="cursor-pointer border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.03]"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs text-accent-cyan">{inc.id}</td>
-                    <td className="px-4 py-3">
-                      <span className="flex items-center gap-2 text-slate-200">
-                        <FileUp className="h-3.5 w-3.5 text-slate-500" />
-                        {inc.name}
-                      </span>
-                    </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold', severityBg(inc.risk))}>
-                        {inc.risk}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><Badge label={inc.status} kind="status" /></td>
-                    <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">{inc.time}</td>
-                  </motion.tr>
-                ))}
-              </tbody>
+  {recentThreats.map((threat, i) => (
+    <motion.tr
+      key={threat._id}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.3 + i * 0.06 }}
+      onClick={() => onNavigate("threats")}
+      className="cursor-pointer border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.03]"
+    >
+      <td className="px-4 py-3 font-mono text-xs text-accent-cyan">
+        {threat._id.slice(-6)}
+      </td>
+
+      <td className="px-4 py-3">
+        <span className="flex items-center gap-2 text-slate-200">
+          <FileUp className="h-3.5 w-3.5 text-slate-500" />
+          {threat.title}
+        </span>
+      </td>
+
+      <td className="hidden px-4 py-3 sm:table-cell">
+        <span
+          className={cn(
+            "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+            severityBg(threat.severity)
+          )}
+        >
+          {threat.severity}
+        </span>
+      </td>
+
+      <td className="px-4 py-3">
+        <Badge label={threat.status} kind="status" />
+      </td>
+
+      <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
+        {new Date(threat.createdAt).toLocaleString()}
+      </td>
+    </motion.tr>
+  ))}
+</tbody>
             </table>
           </div>
         </GlassCard>
