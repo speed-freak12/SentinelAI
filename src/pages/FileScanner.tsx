@@ -17,127 +17,107 @@ import { cn } from '@/utils/cn';
 
 type ScanState = 'idle' | 'scanning' | 'complete';
 
-type ScanResult = {
+type BackendScan = {
+  _id: string;
+  filename: string;
+  fileType?: string;
+  fileSize?: number;
+  result: 'Clean' | 'Suspicious' | 'Malicious';
+  threatScore?: number;
+  createdAt?: string;
+};
+
+type ScanFile = {
   name: string;
   size: string;
   status: 'clean' | 'malicious' | 'suspicious';
 };
 
-const mockFiles: ScanResult[] = [
-  { name: 'invoice_2026.pdf', size: '242 KB', status: 'clean' },
-  { name: 'update.jar', size: '1.8 MB', status: 'malicious' },
-  { name: 'report_q3.xlsx', size: '89 KB', status: 'clean' },
-  { name: 'payload.bin', size: '512 KB', status: 'suspicious' },
-];
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 export function FileScanner() {
   const toast = useToast();
 
   const [state, setState] = useState<ScanState>('idle');
   const [progress, setProgress] = useState(0);
-  const [results, setResults] = useState<ScanResult[] | null>(null);
+  const [results, setResults] = useState<ScanFile[]>([]);
 
-  const saveScanResults = async () => {
+  const loadScans = async () => {
     try {
-      const scans = await Promise.all(
-        mockFiles.map(async (file) => {
-          const result =
-            file.status === 'malicious'
-              ? 'Malicious'
-              : file.status === 'suspicious'
-                ? 'Suspicious'
-                : 'Clean';
+      if (!API_URL) {
+        throw new Error('VITE_API_URL is not configured');
+      }
 
-          const threatScore =
-            result === 'Malicious'
-              ? 95
-              : result === 'Suspicious'
-                ? 65
-                : 5;
+      const response = await fetch(`${API_URL}/api/files`);
 
-          const fileSize =
-            file.size.includes('MB')
-              ? parseFloat(file.size) * 1024 * 1024
-              : parseFloat(file.size) * 1024;
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
 
-          const response = await fetch(`${API_BASE_URL}/api/files/scan`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              filename: file.name,
-              fileType: getFileType(file.name),
-              fileSize: Math.round(fileSize),
-              result,
-              threatScore,
-            }),
-          });
+      const data = await response.json();
 
-          if (!response.ok) {
-            throw new Error(`Failed to save scan for ${file.name}`);
-          }
+      if (!data.success || !Array.isArray(data.scans)) {
+        throw new Error('Invalid response from backend');
+      }
 
-          const data = await response.json();
-
-          if (!data.success) {
-            throw new Error(data.message || 'Failed to save scan');
-          }
-
-          return file;
+      const formattedResults: ScanFile[] = data.scans.map(
+        (scan: BackendScan) => ({
+          name: scan.filename,
+          size: formatFileSize(scan.fileSize),
+          status: mapResult(scan.result),
         })
       );
 
-      return scans;
+      setResults(formattedResults);
+      setState('complete');
+
+      const maliciousCount = formattedResults.filter(
+        (file) => file.status === 'malicious'
+      ).length;
+
+      toast(
+        maliciousCount > 0
+          ? `Scan complete · ${maliciousCount} malicious file${maliciousCount === 1 ? '' : 's'
+          } detected`
+          : 'Scan complete · No malicious files detected',
+        maliciousCount > 0 ? 'warning' : 'success'
+      );
     } catch (error) {
-      console.error('Save Scan Error:', error);
-      throw error;
+      console.error('File Scanner Error:', error);
+
+      setState('idle');
+
+      toast(
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to the scanning service',
+        'error'
+      );
     }
   };
 
   const runScan = async () => {
     setState('scanning');
     setProgress(0);
-    setResults(null);
+    setResults([]);
 
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
+    let currentProgress = 0;
 
-        return p + 5;
-      });
-    }, 90);
+    const interval = window.setInterval(() => {
+      currentProgress += 10;
 
-    try {
-      const savedResults = await saveScanResults();
+      setProgress(Math.min(currentProgress, 90));
 
-      clearInterval(interval);
-      setProgress(100);
-      setResults(savedResults);
-      setState('complete');
+      if (currentProgress >= 90) {
+        window.clearInterval(interval);
 
-      toast(
-        'Scan complete · 1 malicious file detected',
-        'warning'
-      );
-    } catch (error) {
-      clearInterval(interval);
-      setProgress(0);
-      setState('idle');
+        setProgress(100);
 
-      toast(
-        'Scan failed · Could not save results to server',
-        'error'
-      );
-
-      console.error('Scan Error:', error);
-    }
+        setTimeout(() => {
+          loadScans();
+        }, 300);
+      }
+    }, 100);
   };
 
   const statusConfig = {
@@ -148,7 +128,6 @@ export function FileScanner() {
       ring: 'ring-accent-emerald/30',
       label: 'Clean',
     },
-
     malicious: {
       icon: Bug,
       color: 'text-accent-red',
@@ -156,7 +135,6 @@ export function FileScanner() {
       ring: 'ring-accent-red/30',
       label: 'Malicious',
     },
-
     suspicious: {
       icon: ShieldAlert,
       color: 'text-accent-amber',
@@ -166,21 +144,22 @@ export function FileScanner() {
     },
   };
 
-  const cleanCount =
-    results?.filter((f) => f.status === 'clean').length || 0;
+  const cleanCount = results.filter(
+    (file) => file.status === 'clean'
+  ).length;
 
-  const suspiciousCount =
-    results?.filter((f) => f.status === 'suspicious').length || 0;
+  const suspiciousCount = results.filter(
+    (file) => file.status === 'suspicious'
+  ).length;
 
-  const maliciousCount =
-    results?.filter((f) => f.status === 'malicious').length || 0;
+  const maliciousCount = results.filter(
+    (file) => file.status === 'malicious'
+  ).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-white">
-          File Scanner
-        </h2>
+        <h2 className="text-xl font-semibold text-white">File Scanner</h2>
 
         <p className="mt-1 text-sm text-slate-400">
           Deep-scan files with AI-powered malware detection
@@ -193,11 +172,7 @@ export function FileScanner() {
 
         <div className="relative flex flex-col items-center py-6 text-center">
           <motion.div
-            animate={
-              state === 'scanning'
-                ? { rotate: 360 }
-                : {}
-            }
+            animate={state === 'scanning' ? { rotate: 360 } : {}}
             transition={{
               duration: 3,
               repeat: Infinity,
@@ -220,13 +195,14 @@ export function FileScanner() {
 
           <p className="mt-1 text-sm text-slate-400">
             {state === 'idle' &&
-              'Upload files to begin a deep security scan'}
+              'Connect to the security backend to begin a scan'}
 
             {state === 'scanning' &&
               `Analyzing ${progress}% · AI signature matching`}
 
             {state === 'complete' &&
-              '4 files analyzed · 1 threat detected'}
+              `${results.length} file${results.length === 1 ? '' : 's'
+              } loaded from backend`}
           </p>
 
           {state === 'scanning' && (
@@ -260,66 +236,60 @@ export function FileScanner() {
 
       {/* Results */}
       <AnimatePresence>
-        {state === 'complete' && results && (
+        {state === 'complete' && results.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-3"
           >
-            {/* Summary */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="glass-card p-4 text-center">
-                <p className="font-mono text-2xl font-bold text-accent-emerald">
-                  {cleanCount}
-                </p>
+              {[
+                {
+                  label: 'Clean',
+                  val: cleanCount,
+                  color: 'text-accent-emerald',
+                },
+                {
+                  label: 'Suspicious',
+                  val: suspiciousCount,
+                  color: 'text-accent-amber',
+                },
+                {
+                  label: 'Malicious',
+                  val: maliciousCount,
+                  color: 'text-accent-red',
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="glass-card p-4 text-center"
+                >
+                  <p
+                    className={cn(
+                      'font-mono text-2xl font-bold',
+                      s.color
+                    )}
+                  >
+                    {s.val}
+                  </p>
 
-                <p className="text-[11px] text-slate-500">
-                  Clean
-                </p>
-              </div>
-
-              <div className="glass-card p-4 text-center">
-                <p className="font-mono text-2xl font-bold text-accent-amber">
-                  {suspiciousCount}
-                </p>
-
-                <p className="text-[11px] text-slate-500">
-                  Suspicious
-                </p>
-              </div>
-
-              <div className="glass-card p-4 text-center">
-                <p className="font-mono text-2xl font-bold text-accent-red">
-                  {maliciousCount}
-                </p>
-
-                <p className="text-[11px] text-slate-500">
-                  Malicious
-                </p>
-              </div>
+                  <p className="text-[11px] text-slate-500">
+                    {s.label}
+                  </p>
+                </div>
+              ))}
             </div>
 
-            {/* Individual results */}
             {results.map((file, i) => {
-              const config =
-                statusConfig[file.status];
-
+              const config = statusConfig[file.status];
               const Icon = config.icon;
 
               return (
                 <motion.div
-                  key={file.name}
-                  initial={{
-                    opacity: 0,
-                    x: -12,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  transition={{
-                    delay: i * 0.1,
-                  }}
+                  key={`${file.name}-${i}`}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
                   className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3"
                 >
                   <div
@@ -375,17 +345,9 @@ export function FileScanner() {
         ].map((engine, i) => (
           <motion.div
             key={engine}
-            initial={{
-              opacity: 0,
-              y: 12,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: i * 0.05,
-            }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
             className="glass-card flex items-center gap-2 p-3"
           >
             <Shield className="h-4 w-4 text-accent-cyan" />
@@ -402,26 +364,34 @@ export function FileScanner() {
   );
 }
 
-function getFileType(filename: string): string {
-  const extension = filename.split('.').pop()?.toLowerCase();
+function mapResult(
+  result: BackendScan['result']
+): ScanFile['status'] {
+  switch (result) {
+    case 'Malicious':
+      return 'malicious';
 
-  if (!extension) {
-    return 'application/octet-stream';
+    case 'Suspicious':
+      return 'suspicious';
+
+    case 'Clean':
+    default:
+      return 'clean';
+  }
+}
+
+function formatFileSize(size?: number): string {
+  if (!size || size <= 0) {
+    return 'Unknown size';
   }
 
-  const types: Record<string, string> = {
-    pdf: 'application/pdf',
-    jar: 'application/java-archive',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    bin: 'application/octet-stream',
-    txt: 'text/plain',
-    csv: 'text/csv',
-    json: 'application/json',
-    js: 'text/javascript',
-    ts: 'video/mp2t',
-    html: 'text/html',
-    css: 'text/css',
-  };
+  if (size < 1024) {
+    return `${size} B`;
+  }
 
-  return types[extension] || 'application/octet-stream';
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(0)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
