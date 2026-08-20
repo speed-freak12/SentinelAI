@@ -5,11 +5,10 @@ const cors = require("cors");
 
 dotenv.config();
 
-// Debug (optional)
+// Debug
 console.log("EMAIL_USER:", process.env.EMAIL_USER);
 console.log("EMAIL_PASS length:", process.env.EMAIL_PASS?.length);
 
-// Import Routes
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const threatRoutes = require("./routes/threatRoutes");
@@ -19,7 +18,13 @@ const reportRoutes = require("./routes/reportRoutes");
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // API Routes
@@ -29,14 +34,6 @@ app.use("/api/threats", threatRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/reports", reportRoutes);
 
-// MongoDB Connection
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => {
-    console.error("MongoDB Connection Error:", err);
-  });
-
 // Default Route
 app.get("/", (req, res) => {
   res.json({
@@ -45,9 +42,24 @@ app.get("/", (req, res) => {
   });
 });
 
-// Start Server
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err);
+  });
+
+// Local development only
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
+
+// Export Express app for Vercel
+module.exports = app;
