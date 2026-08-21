@@ -9,7 +9,7 @@ import {
   Loader2,
   Bug,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { GlassCard } from '@/components/GlassCard';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
@@ -38,86 +38,97 @@ const API_URL = import.meta.env.VITE_API_URL;
 export function FileScanner() {
   const toast = useToast();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [state, setState] = useState<ScanState>('idle');
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<ScanFile[]>([]);
 
-  const loadScans = async () => {
+  const runScan = () => {
+    if (state === 'scanning') return;
+
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setState('scanning');
+    setProgress(10);
+    setResults([]);
+
     try {
       if (!API_URL) {
         throw new Error('VITE_API_URL is not configured');
       }
 
-      const response = await fetch(`${API_URL}/api/files`);
+      const formData = new FormData();
+      formData.append('file', file);
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
+      setProgress(30);
+
+      const response = await fetch(`${API_URL}/api/files/scan`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      setProgress(70);
 
       const data = await response.json();
 
-      if (!data.success || !Array.isArray(data.scans)) {
-        throw new Error('Invalid response from backend');
+      if (!response.ok || !data.success || !data.scan) {
+        throw new Error(data.message || 'File scan failed');
       }
 
-      const formattedResults: ScanFile[] = data.scans.map(
-        (scan: BackendScan) => ({
-          name: scan.filename,
-          size: formatFileSize(scan.fileSize),
-          status: mapResult(scan.result),
-        })
-      );
+      setProgress(100);
 
-      setResults(formattedResults);
+      const scan: BackendScan = data.scan;
+
+      const formattedResult: ScanFile = {
+        name: scan.filename,
+        size: formatFileSize(scan.fileSize),
+        status: mapResult(scan.result),
+      };
+
+      setResults([formattedResult]);
       setState('complete');
 
-      const maliciousCount = formattedResults.filter(
-        (file) => file.status === 'malicious'
-      ).length;
-
-      toast(
-        maliciousCount > 0
-          ? `Scan complete · ${maliciousCount} malicious file${maliciousCount === 1 ? '' : 's'
-          } detected`
-          : 'Scan complete · No malicious files detected',
-        maliciousCount > 0 ? 'warning' : 'success'
-      );
+      if (scan.result === 'Malicious') {
+        toast(
+          'Scan complete · Malicious file detected',
+          'warning'
+        );
+      } else if (scan.result === 'Suspicious') {
+        toast(
+          'Scan complete · Suspicious file detected',
+          'warning'
+        );
+      } else {
+        toast(
+          'Scan complete · File is clean',
+          'success'
+        );
+      }
     } catch (error) {
-      console.error('File Scanner Error:', error);
+      console.error('File Upload/Scan Error:', error);
 
       setState('idle');
+      setProgress(0);
 
       toast(
         error instanceof Error
           ? error.message
-          : 'Unable to connect to the scanning service',
+          : 'Unable to scan the file',
         'error'
       );
+    } finally {
+      // Allow selecting the same file again.
+      event.target.value = '';
     }
-  };
-
-  const runScan = async () => {
-    setState('scanning');
-    setProgress(0);
-    setResults([]);
-
-    let currentProgress = 0;
-
-    const interval = window.setInterval(() => {
-      currentProgress += 10;
-
-      setProgress(Math.min(currentProgress, 90));
-
-      if (currentProgress >= 90) {
-        window.clearInterval(interval);
-
-        setProgress(100);
-
-        setTimeout(() => {
-          loadScans();
-        }, 300);
-      }
-    }, 100);
   };
 
   const statusConfig = {
@@ -128,6 +139,7 @@ export function FileScanner() {
       ring: 'ring-accent-emerald/30',
       label: 'Clean',
     },
+
     malicious: {
       icon: Bug,
       color: 'text-accent-red',
@@ -135,6 +147,7 @@ export function FileScanner() {
       ring: 'ring-accent-red/30',
       label: 'Malicious',
     },
+
     suspicious: {
       icon: ShieldAlert,
       color: 'text-accent-amber',
@@ -159,7 +172,9 @@ export function FileScanner() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-white">File Scanner</h2>
+        <h2 className="text-xl font-semibold text-white">
+          File Scanner
+        </h2>
 
         <p className="mt-1 text-sm text-slate-400">
           Deep-scan files with AI-powered malware detection
@@ -172,7 +187,11 @@ export function FileScanner() {
 
         <div className="relative flex flex-col items-center py-6 text-center">
           <motion.div
-            animate={state === 'scanning' ? { rotate: 360 } : {}}
+            animate={
+              state === 'scanning'
+                ? { rotate: 360 }
+                : {}
+            }
             transition={{
               duration: 3,
               repeat: Infinity,
@@ -189,20 +208,20 @@ export function FileScanner() {
 
           <h3 className="text-lg font-semibold text-white">
             {state === 'idle' && 'Ready to scan'}
-            {state === 'scanning' && 'Scanning files…'}
+            {state === 'scanning' && 'Scanning file…'}
             {state === 'complete' && 'Scan complete'}
           </h3>
 
           <p className="mt-1 text-sm text-slate-400">
             {state === 'idle' &&
-              'Connect to the security backend to begin a scan'}
+              'Choose a file from your computer to scan'}
 
             {state === 'scanning' &&
-              `Analyzing ${progress}% · AI signature matching`}
+              `Uploading and analyzing ${progress}%`}
 
             {state === 'complete' &&
               `${results.length} file${results.length === 1 ? '' : 's'
-              } loaded from backend`}
+              } scanned`}
           </p>
 
           {state === 'scanning' && (
@@ -213,6 +232,14 @@ export function FileScanner() {
               />
             </div>
           )}
+
+          {/* Real file picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelected}
+          />
 
           <Button
             onClick={runScan}
@@ -227,9 +254,9 @@ export function FileScanner() {
               )
             }
           >
-            {state === 'idle' && 'Start Scan'}
+            {state === 'idle' && 'Choose File'}
             {state === 'scanning' && 'Scanning…'}
-            {state === 'complete' && 'Scan Again'}
+            {state === 'complete' && 'Scan Another File'}
           </Button>
         </div>
       </GlassCard>
@@ -287,9 +314,17 @@ export function FileScanner() {
               return (
                 <motion.div
                   key={`${file.name}-${i}`}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
+                  initial={{
+                    opacity: 0,
+                    x: -12,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                  }}
+                  transition={{
+                    delay: i * 0.1,
+                  }}
                   className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3"
                 >
                   <div
@@ -345,9 +380,17 @@ export function FileScanner() {
         ].map((engine, i) => (
           <motion.div
             key={engine}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            initial={{
+              opacity: 0,
+              y: 12,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              delay: i * 0.05,
+            }}
             className="glass-card flex items-center gap-2 p-3"
           >
             <Shield className="h-4 w-4 text-accent-cyan" />

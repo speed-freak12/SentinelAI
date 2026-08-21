@@ -1,7 +1,17 @@
 const express = require("express");
+const multer = require("multer");
+const Scan = require("../models/Scan");
+
 const router = express.Router();
 
-const Scan = require("../models/Scan");
+// Store uploaded files temporarily in memory.
+// We are NOT permanently storing the user's file yet.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB maximum
+  },
+});
 
 // Get all scans
 router.get("/", async (req, res) => {
@@ -51,42 +61,65 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create a scan record
-router.post("/scan", async (req, res) => {
+// Scan a REAL uploaded file
+router.post("/scan", upload.single("file"), async (req, res) => {
   try {
-    const {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "File is required",
+      });
+    }
+
+    const filename = req.file.originalname;
+    const fileType = req.file.mimetype;
+    const fileSize = req.file.size;
+
+    /*
+     * Temporary detection logic.
+     *
+     * This is NOT mock file data.
+     * The filename and actual uploaded file metadata come
+     * directly from the user's selected file.
+     *
+     * We will replace this section with real malware
+     * analysis in the next step.
+     */
+    const suspiciousExtensions = [
+      ".exe",
+      ".bat",
+      ".cmd",
+      ".scr",
+      ".vbs",
+      ".ps1",
+      ".jar",
+    ];
+
+    const lowerFilename = filename.toLowerCase();
+
+    const isSuspicious = suspiciousExtensions.some((extension) =>
+      lowerFilename.endsWith(extension)
+    );
+
+    const result = isSuspicious ? "Suspicious" : "Clean";
+
+    const threatScore = isSuspicious ? 60 : 5;
+
+    const scan = await Scan.create({
       filename,
       fileType,
       fileSize,
       result,
       threatScore,
-      scannedBy,
-    } = req.body;
-
-    if (!filename) {
-      return res.status(400).json({
-        success: false,
-        message: "Filename is required",
-      });
-    }
-
-    const scan = await Scan.create({
-      filename,
-      fileType: fileType || "",
-      fileSize: fileSize || 0,
-      result: result || "Clean",
-      threatScore:
-        typeof threatScore === "number" ? threatScore : 0,
-      scannedBy: scannedBy || undefined,
     });
 
     res.status(201).json({
       success: true,
-      message: "Scan created successfully",
+      message: "File scanned successfully",
       scan,
     });
   } catch (err) {
-    console.error("Create Scan Error:", err);
+    console.error("File Scan Error:", err);
 
     res.status(500).json({
       success: false,
