@@ -1,4 +1,6 @@
 const express = require("express");
+const mongoose = require("mongoose");
+
 const router = express.Router();
 
 const Threat = require("../models/Threat");
@@ -8,16 +10,17 @@ router.get("/", async (req, res) => {
   try {
     const threats = await Threat.find()
       .sort({ createdAt: -1 })
+      .limit(200)
       .lean();
 
-    res.json({
+    return res.status(200).json({
       success: true,
       threats,
     });
   } catch (err) {
     console.error("Get Threats Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });
@@ -27,7 +30,16 @@ router.get("/", async (req, res) => {
 // Get a single threat by ID
 router.get("/:id", async (req, res) => {
   try {
-    const threat = await Threat.findById(req.params.id).lean();
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid threat ID",
+      });
+    }
+
+    const threat = await Threat.findById(id).lean();
 
     if (!threat) {
       return res.status(404).json({
@@ -36,21 +48,21 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       threat,
     });
   } catch (err) {
     console.error("Get Threat Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });
   }
 });
 
-// Create a real threat
+// Create a threat
 router.post("/", async (req, res) => {
   try {
     const {
@@ -69,14 +81,16 @@ router.post("/", async (req, res) => {
     }
 
     const threat = await Threat.create({
-      title,
-      type,
+      title: String(title).trim(),
+      type: String(type).trim(),
       severity: severity || "Low",
       status: status || "Detected",
-      description: description || "",
+      description: description
+        ? String(description).trim()
+        : "",
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Threat created successfully",
       threat,
@@ -84,7 +98,7 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("Create Threat Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });
@@ -94,6 +108,15 @@ router.post("/", async (req, res) => {
 // Update a threat
 router.put("/:id", async (req, res) => {
   try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid threat ID",
+      });
+    }
+
     const {
       title,
       type,
@@ -102,20 +125,39 @@ router.put("/:id", async (req, res) => {
       description,
     } = req.body;
 
-    const threat = await Threat.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...(title !== undefined && { title }),
-        ...(type !== undefined && { type }),
-        ...(severity !== undefined && { severity }),
-        ...(status !== undefined && { status }),
-        ...(description !== undefined && { description }),
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    ).lean();
+    const updateData = {};
+
+    if (title !== undefined) {
+      updateData.title = String(title).trim();
+    }
+
+    if (type !== undefined) {
+      updateData.type = String(type).trim();
+    }
+
+    if (severity !== undefined) {
+      updateData.severity = severity;
+    }
+
+    if (status !== undefined) {
+      updateData.status = status;
+    }
+
+    if (description !== undefined) {
+      updateData.description = String(
+        description
+      ).trim();
+    }
+
+    const threat =
+      await Threat.findByIdAndUpdate(
+        id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      ).lean();
 
     if (!threat) {
       return res.status(404).json({
@@ -124,7 +166,7 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Threat updated successfully",
       threat,
@@ -132,7 +174,7 @@ router.put("/:id", async (req, res) => {
   } catch (err) {
     console.error("Update Threat Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });
@@ -142,7 +184,17 @@ router.put("/:id", async (req, res) => {
 // Delete a threat
 router.delete("/:id", async (req, res) => {
   try {
-    const threat = await Threat.findByIdAndDelete(req.params.id).lean();
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid threat ID",
+      });
+    }
+
+    const threat =
+      await Threat.findByIdAndDelete(id).lean();
 
     if (!threat) {
       return res.status(404).json({
@@ -151,7 +203,7 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Threat deleted successfully",
       threat,
@@ -159,7 +211,7 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     console.error("Delete Threat Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });

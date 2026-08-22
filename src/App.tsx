@@ -1,9 +1,11 @@
 import { AnimatePresence } from "framer-motion";
 import { useState } from "react";
+
 import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/Navbar";
 import { PageTransition } from "@/components/PageTransition";
 import { ToastProvider } from "@/components/Toast";
+
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { UploadLogs } from "@/pages/UploadLogs";
@@ -34,23 +36,91 @@ const titles: Record<PageId, string> = {
 function AppInner() {
   const { user, logout } = useAuth();
 
-  const [page, setPage] = useState<PageId>("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [page, setPage] =
+    useState<PageId>("dashboard");
 
+  const [selectedThreatId, setSelectedThreatId] =
+    useState<string | null>(null);
+
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  /*
+   * When the user logs in, always return
+   * to the dashboard.
+   */
+  const handleAuthenticated = () => {
+    setSelectedThreatId(null);
+    setPage("dashboard");
+  };
+
+  /*
+   * Central navigation handler.
+   */
+  const handleNavigate = (nextPage: PageId) => {
+    setPage(nextPage);
+    setSidebarOpen(false);
+
+    /*
+     * If the user leaves Incident Details,
+     * don't accidentally keep showing an old
+     * selected threat later.
+     */
+    if (nextPage !== "incident") {
+      setSelectedThreatId(null);
+    }
+  };
+
+  /*
+   * Called by ThreatAnalysis when the user
+   * clicks a specific threat.
+   */
+  const handleSelectThreat = (
+    threatId: string
+  ) => {
+    setSelectedThreatId(threatId);
+    setPage("incident");
+    setSidebarOpen(false);
+  };
+
+  /*
+   * Authentication gate.
+   */
   if (!user) {
-    return <Login onAuthed={() => setPage("dashboard")} />;
+    return (
+      <Login
+        onAuthed={handleAuthenticated}
+      />
+    );
   }
 
-  const render = () => {
+  /*
+   * Render the active page.
+   */
+  const renderPage = () => {
     switch (page) {
       case "dashboard":
-        return <Dashboard onNavigate={setPage} />;
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+          />
+        );
 
       case "threats":
-        return <ThreatAnalysis onNavigate={setPage} />;
+        return (
+          <ThreatAnalysis
+            onNavigate={handleNavigate}
+            onSelectThreat={handleSelectThreat}
+          />
+        );
 
       case "incident":
-        return <IncidentDetails onNavigate={setPage} />;
+        return (
+          <IncidentDetails
+            onNavigate={handleNavigate}
+            threatId={selectedThreatId}
+          />
+        );
 
       case "logs":
         return <UploadLogs />;
@@ -71,36 +141,52 @@ function AppInner() {
         return <Settings />;
 
       default:
-        return <Dashboard onNavigate={setPage} />;
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+          />
+        );
     }
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg-base">
+      {/* Sidebar */}
       <Sidebar
         active={page}
-        onNavigate={(p) => {
-          setPage(p);
-          setSidebarOpen(false);
-        }}
+        onNavigate={handleNavigate}
         onLogout={logout}
         open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={() =>
+          setSidebarOpen(false)
+        }
       />
 
+      {/* Main application */}
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Navbar */}
         <Navbar
           title={titles[page]}
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={() =>
+            setSidebarOpen(true)
+          }
           user={user}
         />
 
+        {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-grid-pattern bg-[size:48px_48px] p-4 lg:p-6">
+          {/* Background glow */}
           <div className="pointer-events-none fixed left-1/2 top-32 h-64 w-[600px] -translate-x-1/2 rounded-full bg-accent-blue/[0.06] blur-[120px]" />
 
           <div className="relative">
-            <AnimatePresence mode="wait">
-              <PageTransition key={page}>{render()}</PageTransition>
+            <AnimatePresence
+              mode="wait"
+            >
+              <PageTransition
+                key={page}
+              >
+                {renderPage()}
+              </PageTransition>
             </AnimatePresence>
           </div>
         </main>

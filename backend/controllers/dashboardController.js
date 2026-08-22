@@ -5,6 +5,12 @@ const Report = require("../models/Report");
 
 exports.getDashboardStats = async (req, res) => {
   try {
+    const now = new Date();
+
+    const last24Hours = new Date(
+      now.getTime() - 24 * 60 * 60 * 1000
+    );
+
     const [
       totalUsers,
       totalThreats,
@@ -16,38 +22,37 @@ exports.getDashboardStats = async (req, res) => {
       threatDistribution,
       threatsOverTime,
     ] = await Promise.all([
-      // Total users
       User.countDocuments(),
 
-      // Total threats
       Threat.countDocuments(),
 
-      // Total scans
       Scan.countDocuments(),
 
-      // Total reports
       Report.countDocuments(),
 
-      // Critical threats
-      Threat.countDocuments({ severity: "Critical" }),
+      Threat.countDocuments({
+        severity: "Critical",
+      }),
 
-      // Resolved threats
-      Threat.countDocuments({ status: "Resolved" }),
+      Threat.countDocuments({
+        status: "Resolved",
+      }),
 
-      // Latest 5 real threats
       Threat.find()
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
 
-      // Threats grouped by severity
       Threat.aggregate([
         {
           $group: {
             _id: "$severity",
-            count: { $sum: 1 },
+            count: {
+              $sum: 1,
+            },
           },
         },
+
         {
           $sort: {
             count: -1,
@@ -55,8 +60,16 @@ exports.getDashboardStats = async (req, res) => {
         },
       ]),
 
-      // Threat activity grouped by hour
       Threat.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: last24Hours,
+              $lte: now,
+            },
+          },
+        },
+
         {
           $group: {
             _id: {
@@ -66,12 +79,10 @@ exports.getDashboardStats = async (req, res) => {
               },
             },
 
-            // Total threats
             threats: {
               $sum: 1,
             },
 
-            // Resolved threats = blocked
             blocked: {
               $sum: {
                 $cond: [
@@ -84,7 +95,6 @@ exports.getDashboardStats = async (req, res) => {
               },
             },
 
-            // Critical threats
             critical: {
               $sum: {
                 $cond: [
@@ -107,7 +117,7 @@ exports.getDashboardStats = async (req, res) => {
       ]),
     ]);
 
-    res.json({
+    return res.status(200).json({
       success: true,
 
       stats: {
@@ -128,7 +138,7 @@ exports.getDashboardStats = async (req, res) => {
   } catch (err) {
     console.error("Dashboard Error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server Error",
     });

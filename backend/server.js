@@ -81,6 +81,10 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const threatRoutes = require("./routes/threatRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const logRoutes = require("./routes/logRoutes");
+const intelligenceRoutes = require("./routes/intelligenceRoutes");
+const assistantRoutes = require("./routes/assistantRoutes");
+
 
 /*
 |--------------------------------------------------------------------------
@@ -320,6 +324,11 @@ app.use("/api/files", fileRoutes);
 
 app.use("/api/reports", reportRoutes);
 
+app.use("/api/logs", logRoutes);
+
+app.use("/api/intelligence", intelligenceRoutes);
+
+app.use("/api/assistant", assistantRoutes);
 /*
 |--------------------------------------------------------------------------
 | 404 Handler
